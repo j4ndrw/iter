@@ -6,18 +6,20 @@ export interface Iter<
   collect(): TReducedAggregate | TAggregates;
   map<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (item: TItem) => TResult
-  ): TItem extends never ? never : Iter<TIterable, TResult[]>;
+  ): EitherNever<TItem, Iter<TIterable, TResult[]>>;
   filter<TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (item: TItem) => boolean
-  ): TItem extends never ? never : Iter<TIterable, TAggregates>;
-  reduce<
-    TAcc,
-    TResult,
-    TItem extends TAggregates[number] = TAggregates[number]
-  >(
+  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+  fold<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
     initialAccumulator: TAcc
-  ): TItem extends never ? never : ReducedIter<TIterable, TResult>;
+  ): EitherNever<TItem, ReducedIter<TIterable, TResult>>;
+  reduce<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
+    fn: (acc: TAggregates[number], item: TItem) => TResult
+  ): EitherNever<
+    TItem,
+    EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
+  >;
 }
 
 export type ReducedIter<
@@ -28,6 +30,7 @@ export type ReducedIter<
 export type Operation<TIterable extends any[]> =
   | ["map", ...Parameters<Iter<TIterable>["map"]>]
   | ["filter", ...Parameters<Iter<TIterable>["filter"]>]
+  | ["fold", ...Parameters<Iter<TIterable>["fold"]>]
   | ["reduce", ...Parameters<Iter<TIterable>["reduce"]>];
 
 export type EitherNever<NeverType, Type> = NeverType extends never

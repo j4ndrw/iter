@@ -1,4 +1,5 @@
 import { EitherNever, Iter as IIter, Operation, ReducedIter } from "./types";
+import { defaultOf } from "./utils";
 
 export class Iter<
   TIterable extends any[],
@@ -40,10 +41,28 @@ export class Iter<
           continue;
         }
 
+        if (kind === "fold") {
+          if (!shouldCollect) continue;
+
+          const [accumulator] = rest;
+          aggregate = this.applyFold(
+            fn,
+            aggregate,
+            accumulator,
+            operationIndex
+          );
+          continue;
+        }
+
         if (kind === "reduce") {
           if (!shouldCollect) continue;
 
-          aggregate = this.applyReduce(fn, aggregate, rest, operationIndex);
+          aggregate = this.applyReduction(
+            fn,
+            aggregate,
+            iterIndex,
+            operationIndex
+          );
           continue;
         }
       }
@@ -90,21 +109,15 @@ export class Iter<
     return fn(aggregate);
   }
 
-  reduce<
-    TAcc,
-    TResult,
-    TItem extends TAggregates[number] = TAggregates[number]
-  >(
+  fold<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
     initialAccumulator: TAcc
   ): EitherNever<TItem, ReducedIter<TIterable, TResult>> {
     if (this.reduced)
-      throw new Error(
-        "Cannot reduce an iterable that has already been reduced"
-      );
+      throw new Error("Cannot fold an iterable that has already been reduced");
 
     this.operations.push([
-      "reduce",
+      "fold",
       fn as (acc: unknown, item: unknown) => unknown,
       initialAccumulator,
     ]);
@@ -114,18 +127,53 @@ export class Iter<
     >;
   }
 
-  private applyReduce(
+  private applyFold(
     fn: (acc: unknown, item: TAggregates[number]) => unknown,
     aggregate: TAggregates[number] | TIterable[number],
-    rest: [] | [unknown],
+    accumulator: unknown,
     opIndex: number
   ) {
     this.reduced = true;
 
-    const [initialAccumulator] = rest;
-    aggregate = fn(initialAccumulator, aggregate);
-    this.operations[opIndex] = ["reduce", fn, aggregate];
+    aggregate = fn(accumulator, aggregate);
+    this.operations[opIndex] = ["fold", fn, aggregate];
     return aggregate;
+  }
+
+  reduce<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
+    fn: (
+      acc: EitherNever<TAggregates[1], TAggregates[number]>,
+      item: TItem
+    ) => TResult
+  ): EitherNever<
+    TItem,
+    EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
+  > {
+    if (this.reduced)
+      throw new Error("Cannot fold an iterable that has already been reduced");
+
+    this.operations.push([
+      "reduce",
+      fn as (acc: unknown, item: unknown) => unknown,
+    ]);
+    return this as unknown as EitherNever<
+      TItem,
+      EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
+    >;
+  }
+
+  private applyReduction(
+    fn: (acc: TIterable[number], item: TIterable[number]) => unknown,
+    aggregate: TAggregates[number] | TIterable[number],
+    iterIndex: number,
+    operationIndex: number
+  ) {
+    const accumulator = (() => {
+      if (iterIndex === 0) return defaultOf(typeof aggregate);
+      return this.iterable[iterIndex - 1];
+    })();
+
+    return this.applyFold(fn, accumulator, aggregate, operationIndex);
   }
 }
 

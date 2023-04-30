@@ -15,12 +15,9 @@ describe("Iter", () => {
     expect(result).toStrictEqual([3, 5, 7]);
   });
 
-  it("should reduce the iterable", () => {
+  it("should fold the iterable", () => {
     const result = iter(iterable)
-      .reduce((acc, item) => {
-        console.log({ acc });
-        return acc + item;
-      }, 0)
+      .fold((acc, item) => acc + item, 0)
       .collect();
 
     expect(result).toBe(6);
@@ -38,7 +35,7 @@ describe("Iter", () => {
     const result = iter(iterable)
       .map((num) => num * num)
       .filter((num) => num % 2 !== 0)
-      .reduce((acc, num) => acc + num, 0)
+      .fold((acc, num) => acc + num, 0)
       .collect();
 
     expect(result).toBe(10);
@@ -46,7 +43,7 @@ describe("Iter", () => {
 
   it("should construct a record of strings with numbers as values", () => {
     const result = iter(iterable)
-      .reduce((acc, item) => {
+      .fold((acc, item) => {
         if (item % 2 === 0) {
           acc[`even ${item}`] = item;
           return acc;
@@ -61,5 +58,21 @@ describe("Iter", () => {
       "even 2": 2,
       "odd 3": 3,
     });
+  });
+
+  it("should correctly apply a sum reduction", () => {
+    const result = iter(iterable)
+      .reduce((acc, number) => acc + number)
+      .collect();
+
+    expect(result).toBe(6);
+  });
+
+  it("should correctly apply the reduction on an array with a single element", () => {
+    const result = iter([1])
+      .reduce((acc, number) => `this is number ${acc + number}`)
+      .collect();
+
+    expect(result).toBe("this is number 1");
   });
 });
