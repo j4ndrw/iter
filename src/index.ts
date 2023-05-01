@@ -1,5 +1,5 @@
 import { EitherNever, Iter as IIter, Operation, ReducedIter } from "./types";
-import { defaultOf } from "./utils";
+import { cast, defaultOf } from "./utils";
 
 export class Iter<
   TIterable extends any[],
@@ -25,85 +25,89 @@ export class Iter<
     let numCollected = 0;
 
     for (let iterIndex = 0; iterIndex < this.iterable.length; iterIndex++) {
-      let aggregate: TIterable[number] | TAggregates[number] =
-        this.iterable[iterIndex];
-      let shouldCollect = true;
-
-      for (
-        let operationIndex = 0;
-        operationIndex < this.operations.length;
-        operationIndex++
-      ) {
-        if (!shouldCollect) break;
-
-        const operation = this.operations[operationIndex];
-        const [kind, fn, ...rest] = operation;
-
-        if (kind === "map") {
-          aggregate = this.applyMap(fn, aggregate);
-          continue;
-        }
-
-        if (kind === "filter") {
-          shouldCollect = this.applyFilter(fn, aggregate);
-          continue;
-        }
-
-        if (kind === "fold") {
-          const [accumulator] = rest;
-          aggregate = this.applyFold(
-            fn,
-            aggregate,
-            accumulator,
-            operationIndex
-          );
-          continue;
-        }
-
-        if (kind === "reduce") {
-          aggregate = this.applyReduction(
-            fn,
-            aggregate,
-            iterIndex,
-            operationIndex
-          );
-          continue;
-        }
-
-        if (kind === "scan") {
-          const [accumulator] = rest;
-
-          aggregate = this.applyScan(
-            fn,
-            aggregate,
-            accumulator,
-            operationIndex
-          );
-          continue;
-        }
-      }
+      let { aggregate, shouldCollect } = this.aggregateItem(iterIndex);
 
       if (this.reduced && iterIndex === this.iterable.length - 1)
         return aggregate;
 
-      if (shouldCollect && !this.reduced) {
-        if (collected.length === this.takeMany) break;
-        if (numCollected >= this.skipMany) collected.push(aggregate);
-        numCollected++;
-      }
+      if (!shouldCollect || this.reduced) continue;
+
+      if (collected.length === this.takeMany) break;
+      if (numCollected >= this.skipMany) collected.push(aggregate);
+      numCollected++;
     }
 
     return collected as TAggregates;
   }
 
+  private aggregateItem(iterIndex: number): {
+    aggregate: TIterable[number] | TAggregates[number];
+    shouldCollect: boolean;
+  } {
+    let aggregate: TIterable[number] | TAggregates[number] =
+      this.iterable[iterIndex];
+    let shouldCollect = true;
+
+    for (
+      let operationIndex = 0;
+      operationIndex < this.operations.length;
+      operationIndex++
+    ) {
+      ({ aggregate = aggregate, shouldCollect = shouldCollect } =
+        this.applyOperation(operationIndex, aggregate, shouldCollect));
+    }
+    return { aggregate, shouldCollect };
+  }
+
+  private applyOperation(
+    operationIndex: number,
+    aggregate?: TIterable[number] | TAggregates[number],
+    shouldCollect?: boolean
+  ): {
+    aggregate?: unknown;
+    shouldCollect?: boolean;
+  } {
+    if (!shouldCollect) return {};
+
+    const operation = this.operations[operationIndex];
+    const [kind, fn, ...rest] = operation;
+
+    if (kind === "map") return { aggregate: this.applyMap(fn, aggregate) };
+
+    if (kind === "filter")
+      return { shouldCollect: this.applyFilter(fn, aggregate) };
+
+    if (kind === "fold") {
+      const [accumulator] = rest;
+      return {
+        aggregate: this.applyFold(fn, aggregate, accumulator, operationIndex),
+      };
+    }
+
+    if (kind === "reduce")
+      return {
+        aggregate: this.applyReduction(fn, aggregate, operationIndex),
+      };
+
+    if (kind === "scan") {
+      const [accumulator] = rest;
+
+      return {
+        aggregate: this.applyScan(fn, aggregate, accumulator, operationIndex),
+      };
+    }
+
+    return {};
+  }
+
   map<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (item: TItem) => TResult
-  ): EitherNever<TItem, Iter<TIterable, TResult[]>> {
+  ): EitherNever<TItem, IIter<TIterable, TResult[], never>> {
     if (this.reduced)
       throw new Error("Cannot map an iterable that has been reduced");
 
     this.operations.push(["map", fn]);
-    return this as unknown as ReturnType<typeof this.map<TResult, TItem>>;
+    return cast<typeof this.map<TResult, TItem>>(this);
   }
 
   private applyMap(
@@ -115,12 +119,12 @@ export class Iter<
 
   filter<TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (item: TItem) => boolean
-  ): EitherNever<TItem, Iter<TIterable, TAggregates>> {
+  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
     if (this.reduced)
       throw new Error("Cannot filter an iterable that has been reduced");
 
     this.operations.push(["filter", fn]);
-    return this as unknown as ReturnType<typeof this.filter<TItem>>;
+    return cast<typeof this.filter<TItem>>(this);
   }
 
   private applyFilter(
@@ -142,9 +146,7 @@ export class Iter<
       fn as (acc: unknown, item: unknown) => unknown,
       initialAccumulator,
     ]);
-    return this as unknown as ReturnType<
-      typeof this.fold<TAcc, TResult, TItem>
-    >;
+    return cast<typeof this.fold<TAcc, TResult, TItem>>(this);
   }
 
   private applyFold(
@@ -176,20 +178,15 @@ export class Iter<
       "reduce",
       fn as (acc: unknown, item: unknown) => unknown,
     ]);
-    return this as unknown as ReturnType<typeof this.reduce<TResult, TItem>>;
+    return cast<typeof this.reduce<TResult, TItem>>(this);
   }
 
   private applyReduction(
     fn: (acc: TIterable[number], item: TIterable[number]) => unknown,
     aggregate: TAggregates[number] | TIterable[number],
-    iterIndex: number,
     operationIndex: number
   ) {
-    const accumulator = (() => {
-      if (iterIndex === 0) return defaultOf(typeof aggregate);
-      return this.iterable[iterIndex - 1];
-    })();
-
+    const accumulator = defaultOf(typeof aggregate);
     return this.applyFold(fn, accumulator, aggregate, operationIndex);
   }
 
@@ -205,9 +202,7 @@ export class Iter<
       fn as (acc: unknown, item: unknown) => unknown,
       initialAccumulator,
     ]);
-    return this as unknown as ReturnType<
-      typeof this.scan<TAcc, TResult, TItem>
-    >;
+    return cast<typeof this.scan<TAcc, TResult, TItem>>(this);
   }
 
   private applyScan(
@@ -224,25 +219,32 @@ export class Iter<
   take<TItem extends TAggregates[number] = TAggregates[number]>(
     many: number
   ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    if (this.reduced)
+      throw new Error("Cannot take an iterable that has already been reduced");
+
     this.takeMany = (() => {
       if (many < 0) return 0;
       if (many > this.iterable.length) return this.iterable.length;
 
       return many;
     })();
-    return this as unknown as ReturnType<typeof this.take>;
+    return cast<typeof this.take>(this);
   }
 
   skip<TItem extends TAggregates[number] = TAggregates[number]>(
     many: number
   ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    if (this.reduced)
+      throw new Error("Cannot skip an iterable that has already been reduced");
+
     this.skipMany = (() => {
       if (many < 0) return 0;
       if (many > this.iterable.length) return this.iterable.length;
 
       return many;
     })();
-    return this as unknown as ReturnType<typeof this.take>;
+
+    return cast<typeof this.skip>(this);
   }
 }
 

@@ -195,4 +195,13 @@ describe("Iter", () => {
 
     expect(result).toStrictEqual([1, 3, 6, 10]);
   });
+
+  it("should filter, then reduce", () => {
+    const result = iter([1, 2, 3, 4])
+      .filter((number) => number % 2 === 0)
+      .reduce((acc, number) => acc + number)
+      .collect();
+
+    expect(result).toBe(6);
+  });
 });
