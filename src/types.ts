@@ -20,6 +20,12 @@ export interface Iter<
     TItem,
     EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
   >;
+  take<TItem extends TAggregates[number] = TAggregates[number]>(
+    many: number
+  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+  skip<TItem extends TAggregates[number] = TAggregates[number]>(
+    many: number
+  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
 }
 
 export type ReducedIter<

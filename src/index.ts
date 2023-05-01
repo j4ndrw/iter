@@ -11,12 +11,18 @@ export class Iter<
   private operations: Operation<TIterable>[] = [];
   private reduced: boolean = false;
 
+  private skipMany: number;
+  private takeMany: number;
+
   constructor(iterable: TIterable) {
     this.iterable = iterable;
+    this.skipMany = 0;
+    this.takeMany = iterable.length;
   }
 
   collect(): TReducedAggregate | TAggregates {
     let collected = [];
+    let numCollected = 0;
 
     for (let iterIndex = 0; iterIndex < this.iterable.length; iterIndex++) {
       let aggregate: TIterable[number] | TAggregates[number] =
@@ -69,7 +75,12 @@ export class Iter<
 
       if (this.reduced && iterIndex === this.iterable.length - 1)
         return aggregate;
-      if (shouldCollect && !this.reduced) collected.push(aggregate);
+
+      if (shouldCollect && !this.reduced) {
+        if (collected.length === this.takeMany) break;
+        if (numCollected >= this.skipMany) collected.push(aggregate);
+        numCollected++;
+      }
     }
 
     return collected as TAggregates;
@@ -82,7 +93,7 @@ export class Iter<
       throw new Error("Cannot map an iterable that has been reduced");
 
     this.operations.push(["map", fn]);
-    return this as unknown as EitherNever<TItem, Iter<TIterable, TResult[]>>;
+    return this as unknown as ReturnType<typeof this.map<TResult, TItem>>;
   }
 
   private applyMap(
@@ -99,7 +110,7 @@ export class Iter<
       throw new Error("Cannot filter an iterable that has been reduced");
 
     this.operations.push(["filter", fn]);
-    return this as unknown as EitherNever<TItem, Iter<TIterable, TAggregates>>;
+    return this as unknown as ReturnType<typeof this.filter<TItem>>;
   }
 
   private applyFilter(
@@ -121,9 +132,8 @@ export class Iter<
       fn as (acc: unknown, item: unknown) => unknown,
       initialAccumulator,
     ]);
-    return this as unknown as EitherNever<
-      TItem,
-      ReducedIter<TIterable, TResult>
+    return this as unknown as ReturnType<
+      typeof this.fold<TAcc, TResult, TItem>
     >;
   }
 
@@ -156,10 +166,7 @@ export class Iter<
       "reduce",
       fn as (acc: unknown, item: unknown) => unknown,
     ]);
-    return this as unknown as EitherNever<
-      TItem,
-      EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
-    >;
+    return this as unknown as ReturnType<typeof this.reduce<TResult, TItem>>;
   }
 
   private applyReduction(
@@ -174,6 +181,29 @@ export class Iter<
     })();
 
     return this.applyFold(fn, accumulator, aggregate, operationIndex);
+  }
+
+  take<TItem extends TAggregates[number] = TAggregates[number]>(
+    many: number
+  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    this.takeMany = (() => {
+      if (many < 0) return 0;
+      if (many > this.iterable.length) return this.iterable.length;
+
+      return many;
+    })();
+    return this as unknown as ReturnType<typeof this.take>;
+  }
+  skip<TItem extends TAggregates[number] = TAggregates[number]>(
+    many: number
+  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    this.skipMany = (() => {
+      if (many < 0) return 0;
+      if (many > this.iterable.length) return this.iterable.length;
+
+      return many;
+    })();
+    return this as unknown as ReturnType<typeof this.take>;
   }
 }
 
