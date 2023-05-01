@@ -25,10 +25,10 @@ describe("Iter", () => {
 
   it("should filter the iterable", () => {
     const result = iter(iterable)
-      .filter((item) => item === 0)
+      .filter((item) => item === 999)
       .collect();
 
-    expect(result).toStrictEqual(iterable.filter((item) => item === 0));
+    expect(result).toStrictEqual(iterable.filter((item) => item === 999));
   });
 
   it("should square all numbers, filter the odd ones and sum them up", () => {
@@ -186,5 +186,13 @@ describe("Iter", () => {
     expect(result).toStrictEqual(
       iterable.slice(1).filter((number) => number % 2 !== 0)
     );
+  });
+
+  it("should correctly scan the iterable", () => {
+    const result = iter([1, 2, 3, 4])
+      .scan((acc, number) => acc + number, 0)
+      .collect();
+
+    expect(result).toStrictEqual([1, 3, 6, 10]);
   });
 });

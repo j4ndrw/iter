@@ -34,6 +34,8 @@ export class Iter<
         operationIndex < this.operations.length;
         operationIndex++
       ) {
+        if (!shouldCollect) break;
+
         const operation = this.operations[operationIndex];
         const [kind, fn, ...rest] = operation;
 
@@ -48,8 +50,6 @@ export class Iter<
         }
 
         if (kind === "fold") {
-          if (!shouldCollect) continue;
-
           const [accumulator] = rest;
           aggregate = this.applyFold(
             fn,
@@ -61,12 +61,22 @@ export class Iter<
         }
 
         if (kind === "reduce") {
-          if (!shouldCollect) continue;
-
           aggregate = this.applyReduction(
             fn,
             aggregate,
             iterIndex,
+            operationIndex
+          );
+          continue;
+        }
+
+        if (kind === "scan") {
+          const [accumulator] = rest;
+
+          aggregate = this.applyScan(
+            fn,
+            aggregate,
+            accumulator,
             operationIndex
           );
           continue;
@@ -141,12 +151,12 @@ export class Iter<
     fn: (acc: unknown, item: TAggregates[number]) => unknown,
     aggregate: TAggregates[number] | TIterable[number],
     accumulator: unknown,
-    opIndex: number
+    operationIndex: number
   ) {
     this.reduced = true;
 
     aggregate = fn(accumulator, aggregate);
-    this.operations[opIndex] = ["fold", fn, aggregate];
+    this.operations[operationIndex] = ["fold", fn, aggregate];
     return aggregate;
   }
 
@@ -183,6 +193,34 @@ export class Iter<
     return this.applyFold(fn, accumulator, aggregate, operationIndex);
   }
 
+  scan<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
+    fn: (acc: TAcc, item: TItem) => TResult,
+    initialAccumulator: TAcc
+  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    if (this.reduced)
+      throw new Error("Cannot scan an iterable that has already been reduced");
+
+    this.operations.push([
+      "scan",
+      fn as (acc: unknown, item: unknown) => unknown,
+      initialAccumulator,
+    ]);
+    return this as unknown as ReturnType<
+      typeof this.scan<TAcc, TResult, TItem>
+    >;
+  }
+
+  private applyScan(
+    fn: (acc: unknown, item: TIterable[number]) => unknown,
+    aggregate: TIterable[number] | TAggregates[number],
+    accumulator: unknown,
+    operationIndex: number
+  ) {
+    aggregate = fn(accumulator, aggregate);
+    this.operations[operationIndex] = ["scan", fn, aggregate];
+    return aggregate;
+  }
+
   take<TItem extends TAggregates[number] = TAggregates[number]>(
     many: number
   ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
@@ -194,6 +232,7 @@ export class Iter<
     })();
     return this as unknown as ReturnType<typeof this.take>;
   }
+
   skip<TItem extends TAggregates[number] = TAggregates[number]>(
     many: number
   ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {

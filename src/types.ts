@@ -20,6 +20,10 @@ export interface Iter<
     TItem,
     EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
   >;
+  scan<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
+    fn: (acc: TAcc, item: TItem) => TResult,
+    initialAccumulator: TAcc
+  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
   take<TItem extends TAggregates[number] = TAggregates[number]>(
     many: number
   ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
@@ -37,7 +41,8 @@ export type Operation<TIterable extends any[]> =
   | ["map", ...Parameters<Iter<TIterable>["map"]>]
   | ["filter", ...Parameters<Iter<TIterable>["filter"]>]
   | ["fold", ...Parameters<Iter<TIterable>["fold"]>]
-  | ["reduce", ...Parameters<Iter<TIterable>["reduce"]>];
+  | ["reduce", ...Parameters<Iter<TIterable>["reduce"]>]
+  | ["scan", ...Parameters<Iter<TIterable>["scan"]>];
 
 export type EitherNever<NeverType, Type> = NeverType extends never
   ? never
