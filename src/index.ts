@@ -1,11 +1,11 @@
-import { EitherNever, Iter as IIter, Operation, ReducedIter } from "./types";
+import { ILazyIterator, Operation, ReducedIterator } from "./types";
 import { cast, defaultOf } from "./utils";
 
-export class Iter<
+class LazyIterator<
   TIterable extends any[],
   TAggregates extends any[] = TIterable,
-  TReducedAggregate extends any = never
-> implements IIter<TIterable, TAggregates, TReducedAggregate>
+  TReducedAggregate extends any = never,
+> implements ILazyIterator<TIterable, TAggregates, TReducedAggregate>
 {
   private iterable: TIterable[];
   private operations: Operation<TIterable>[] = [];
@@ -25,15 +25,16 @@ export class Iter<
     let numCollected = 0;
 
     for (let iterIndex = 0; iterIndex < this.iterable.length; iterIndex++) {
-      let { aggregate, shouldCollect } = this.aggregateItem(iterIndex);
+      const { aggregate, shouldCollect } = this.aggregateItem(iterIndex);
 
       if (this.reduced && iterIndex === this.iterable.length - 1)
         return aggregate;
 
       if (!shouldCollect || this.reduced) continue;
-
       if (collected.length === this.takeMany) break;
+
       if (numCollected >= this.skipMany) collected.push(aggregate);
+
       numCollected++;
     }
 
@@ -44,8 +45,9 @@ export class Iter<
     aggregate: TIterable[number] | TAggregates[number];
     shouldCollect: boolean;
   } {
-    let aggregate: TIterable[number] | TAggregates[number] =
-      this.iterable[iterIndex];
+    let aggregate = this.iterable[iterIndex] as
+      | TIterable[number]
+      | TAggregates[number];
     let shouldCollect = true;
 
     for (
@@ -62,7 +64,7 @@ export class Iter<
   private applyOperation(
     operationIndex: number,
     aggregate?: TIterable[number] | TAggregates[number],
-    shouldCollect?: boolean
+    shouldCollect?: boolean,
   ): {
     aggregate?: unknown;
     shouldCollect?: boolean;
@@ -73,7 +75,6 @@ export class Iter<
     const [kind, fn, ...rest] = operation;
 
     if (kind === "map") return { aggregate: this.applyMap(fn, aggregate) };
-
     if (kind === "filter")
       return { shouldCollect: this.applyFilter(fn, aggregate) };
 
@@ -85,9 +86,7 @@ export class Iter<
     }
 
     if (kind === "reduce")
-      return {
-        aggregate: this.applyReduction(fn, aggregate, operationIndex),
-      };
+      return { aggregate: this.applyReduction(fn, aggregate, operationIndex) };
 
     if (kind === "scan") {
       const [accumulator] = rest;
@@ -101,8 +100,8 @@ export class Iter<
   }
 
   map<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => TResult
-  ): EitherNever<TItem, IIter<TIterable, TResult[], never>> {
+    fn: (item: TItem) => TResult,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TResult[], never> {
     if (this.reduced)
       throw new Error("Cannot map an iterable that has been reduced");
 
@@ -112,14 +111,16 @@ export class Iter<
 
   private applyMap(
     fn: (item: TAggregates[number]) => unknown,
-    aggregate: TAggregates[number] | TIterable[number]
+    aggregate: TAggregates[number] | TIterable[number],
   ) {
     return fn(aggregate);
   }
 
   filter<TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => boolean
-  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    fn: (item: TItem) => boolean,
+  ): TItem extends never
+    ? never
+    : ILazyIterator<TIterable, TAggregates, never> {
     if (this.reduced)
       throw new Error("Cannot filter an iterable that has been reduced");
 
@@ -129,15 +130,15 @@ export class Iter<
 
   private applyFilter(
     fn: (item: TAggregates[number]) => boolean,
-    aggregate: TAggregates[number] | TIterable[number]
+    aggregate: TAggregates[number] | TIterable[number],
   ) {
     return fn(aggregate);
   }
 
   fold<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
-    initialAccumulator: TAcc
-  ): EitherNever<TItem, ReducedIter<TIterable, TResult>> {
+    initialAccumulator: TAcc,
+  ): TItem extends never ? never : ReducedIterator<TIterable, TResult> {
     if (this.reduced)
       throw new Error("Cannot fold an iterable that has already been reduced");
 
@@ -153,7 +154,7 @@ export class Iter<
     fn: (acc: unknown, item: TAggregates[number]) => unknown,
     aggregate: TAggregates[number] | TIterable[number],
     accumulator: unknown,
-    operationIndex: number
+    operationIndex: number,
   ) {
     this.reduced = true;
 
@@ -164,13 +165,14 @@ export class Iter<
 
   reduce<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (
-      acc: EitherNever<TAggregates[1], TAggregates[number]>,
-      item: TItem
-    ) => TResult
-  ): EitherNever<
-    TItem,
-    EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
-  > {
+      acc: TAggregates[1] extends never ? never : TAggregates[number],
+      item: TItem,
+    ) => TResult,
+  ): TItem extends never
+    ? never
+    : TAggregates[1] extends never
+    ? never
+    : ReducedIterator<TIterable, TResult> {
     if (this.reduced)
       throw new Error("Cannot fold an iterable that has already been reduced");
 
@@ -184,7 +186,7 @@ export class Iter<
   private applyReduction(
     fn: (acc: TIterable[number], item: TIterable[number]) => unknown,
     aggregate: TAggregates[number] | TIterable[number],
-    operationIndex: number
+    operationIndex: number,
   ) {
     const accumulator = defaultOf(typeof aggregate);
     return this.applyFold(fn, accumulator, aggregate, operationIndex);
@@ -192,8 +194,10 @@ export class Iter<
 
   scan<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
-    initialAccumulator: TAcc
-  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    initialAccumulator: TAcc,
+  ): TItem extends never
+    ? never
+    : ILazyIterator<TIterable, TAggregates, never> {
     if (this.reduced)
       throw new Error("Cannot scan an iterable that has already been reduced");
 
@@ -209,7 +213,7 @@ export class Iter<
     fn: (acc: unknown, item: TIterable[number]) => unknown,
     aggregate: TIterable[number] | TAggregates[number],
     accumulator: unknown,
-    operationIndex: number
+    operationIndex: number,
   ) {
     aggregate = fn(accumulator, aggregate);
     this.operations[operationIndex] = ["scan", fn, aggregate];
@@ -217,8 +221,10 @@ export class Iter<
   }
 
   take<TItem extends TAggregates[number] = TAggregates[number]>(
-    many: number
-  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    many: number,
+  ): TItem extends never
+    ? never
+    : ILazyIterator<TIterable, TAggregates, never> {
     if (this.reduced)
       throw new Error("Cannot take an iterable that has already been reduced");
 
@@ -232,8 +238,10 @@ export class Iter<
   }
 
   skip<TItem extends TAggregates[number] = TAggregates[number]>(
-    many: number
-  ): EitherNever<TItem, IIter<TIterable, TAggregates, never>> {
+    many: number,
+  ): TItem extends never
+    ? never
+    : ILazyIterator<TIterable, TAggregates, never> {
     if (this.reduced)
       throw new Error("Cannot skip an iterable that has already been reduced");
 
@@ -248,4 +256,12 @@ export class Iter<
   }
 }
 
-export const iter = <T extends any[]>(item: T) => new Iter(item);
+Array.prototype.iter = function() {
+  return new LazyIterator(this);
+};
+
+declare global {
+  interface Array<T> {
+    iter(): LazyIterator<T[]>;
+  }
+}

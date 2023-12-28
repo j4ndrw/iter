@@ -1,49 +1,55 @@
-export interface Iter<
+export interface ILazyIterator<
   TIterable extends any[],
   TAggregates extends any[] = TIterable,
-  TReducedAggregate extends any = never
+  TReducedAggregate extends any = never,
 > {
   collect(): TReducedAggregate | TAggregates;
+
   map<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => TResult
-  ): EitherNever<TItem, Iter<TIterable, TResult[]>>;
+    fn: (item: TItem) => TResult,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TResult[]>;
+
   filter<TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => boolean
-  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+    fn: (item: TItem) => boolean,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+
   fold<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
-    initialAccumulator: TAcc
-  ): EitherNever<TItem, ReducedIter<TIterable, TResult>>;
+    initialAccumulator: TAcc,
+  ): TItem extends never ? never : ReducedIterator<TIterable, TResult>;
+
   reduce<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (acc: TAggregates[number], item: TItem) => TResult
-  ): EitherNever<
-    TItem,
-    EitherNever<TAggregates[1], ReducedIter<TIterable, TResult>>
-  >;
+    fn: (acc: TAggregates[number], item: TItem) => TResult,
+  ): TItem extends never
+    ? never
+    : TAggregates[1] extends never
+    ? never
+    : ReducedIterator<TIterable, TResult>;
+
   scan<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
     fn: (acc: TAcc, item: TItem) => TResult,
-    initialAccumulator: TAcc
-  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+    initialAccumulator: TAcc,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+
   take<TItem extends TAggregates[number] = TAggregates[number]>(
-    many: number
-  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+    many: number,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+
   skip<TItem extends TAggregates[number] = TAggregates[number]>(
-    many: number
-  ): EitherNever<TItem, Iter<TIterable, TAggregates>>;
+    many: number,
+  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
 }
 
-export type ReducedIter<
+export type ReducedIterator<
   TIterable extends any[],
-  TReducedAggregate extends any = never
-> = Pick<Iter<TIterable, never, TReducedAggregate>, "collect">;
+  TReducedAggregate extends any = never,
+> = Pick<ILazyIterator<TIterable, never, TReducedAggregate>, "collect">;
 
 export type Operation<TIterable extends any[]> =
-  | ["map", ...Parameters<Iter<TIterable>["map"]>]
-  | ["filter", ...Parameters<Iter<TIterable>["filter"]>]
-  | ["fold", ...Parameters<Iter<TIterable>["fold"]>]
-  | ["reduce", ...Parameters<Iter<TIterable>["reduce"]>]
-  | ["scan", ...Parameters<Iter<TIterable>["scan"]>];
-
-export type EitherNever<NeverType, Type> = NeverType extends never
-  ? never
-  : Type;
+  | ["map", ...Parameters<ILazyIterator<TIterable>["map"]>]
+  | ["filter", ...Parameters<ILazyIterator<TIterable>["filter"]>]
+  | ["fold", ...Parameters<ILazyIterator<TIterable>["fold"]>]
+  | ["reduce", ...Parameters<ILazyIterator<TIterable>["reduce"]>]
+  | ["scan", ...Parameters<ILazyIterator<TIterable>["scan"]>]
+  | ["take", ...Parameters<ILazyIterator<TIterable>["take"]>]
+  | ["skip", ...Parameters<ILazyIterator<TIterable>["skip"]>];

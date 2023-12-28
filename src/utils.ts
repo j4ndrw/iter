@@ -6,8 +6,9 @@ export const defaultOf = (
     | "boolean"
     | "symbol"
     | "undefined"
+    | "null"
     | "object"
-    | "function"
+    | "function",
 ) => {
   const defaults: Record<
     typeof _type,
@@ -17,15 +18,17 @@ export const defaultOf = (
     | boolean
     | symbol
     | undefined
+    | null
     | object
     | (() => void)
   > = {
     undefined,
+    null: null,
     boolean: false,
     number: 0,
     bigint: 0n,
     string: "",
-    function: () => {},
+    function: () => { },
     object: {},
     symbol: undefined,
   };
