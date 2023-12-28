@@ -2,231 +2,249 @@ import { describe, it, expect } from "vitest";
 
 import "../src";
 
-const iterable = [1, 2, 3, 4, 5, 6, 0, 24, 13];
-const flattenableIterable = [
-  [1, 2, 3],
-  [4, 5, 6],
-];
+describe("LazyIterator", () => {
+  const iterable = [1, 2, 3, 4, 5, 6, 0, 24, 13];
+  const flattenableIterable = [
+    [1, 2, 3],
+    [4, 5, 6],
+  ];
 
-describe("Iter", () => {
-  it("should map the iterable", () => {
-    const result = iterable
-      .iter()
-      .map((item) => item * 2 + 1)
-      .collect();
+  describe("primitives", () => {
+    describe("map", () => {
+      it("should map the iterable", () => {
+        const result = iterable
+          .iter()
+          .map((item) => item * 2 + 1)
+          .collect();
 
-    expect(result).toStrictEqual(iterable.map((item) => item * 2 + 1));
+        expect(result).toStrictEqual(iterable.map((item) => item * 2 + 1));
+      });
+    });
+
+    describe("filter", () => {
+      it("should filter the iterable", () => {
+        const result = iterable
+          .iter()
+          .filter((item) => item === 999)
+          .collect();
+
+        expect(result).toStrictEqual(iterable.filter((item) => item === 999));
+      });
+    });
+
+    describe("fold", () => {
+      it("should fold the iterable", () => {
+        const result = iterable
+          .iter()
+          .fold((acc, item) => acc + item, 0)
+          .collect();
+
+        expect(result).toBe(iterable.reduce((acc, item) => acc + item, 0));
+      });
+    });
+
+    describe("reduce", () => {
+      it("should correctly apply a sum reduction", () => {
+        const result = iterable
+          .iter()
+          .reduce((acc, number) => acc + number)
+          .collect();
+
+        expect(result).toBe(iterable.reduce((acc, number) => acc + number));
+      });
+
+      it("should correctly apply the reduction on an array with a single element", () => {
+        const result = [1]
+          .iter()
+          .reduce((acc, number) => `this is number ${acc + number}`)
+          .collect();
+
+        expect(result).toBe("this is number 1");
+      });
+    });
+
+    describe("take", () => {
+      it("should take the specified number of elements", () => {
+        const result = iterable.iter().take(2).collect();
+
+        expect(result).toStrictEqual([1, 2]);
+      });
+
+      it("should take the whole array if the take number is greater than the array length", () => {
+        const result = iterable
+          .iter()
+          .take(iterable.length + 4)
+          .collect();
+
+        expect(result).toStrictEqual(iterable);
+      });
+
+      it("should take no elements if the take number is negative", () => {
+        const result = iterable.iter().take(-6).collect();
+
+        expect(result).toStrictEqual([]);
+      });
+    });
+
+    describe("skip", () => {
+      it("should skip the specified number of elements", () => {
+        const result = iterable.iter().skip(2).collect();
+
+        expect(result).toStrictEqual(iterable.slice(2));
+      });
+
+      it("should skip the whole array if the skip number is greater than the array length", () => {
+        const result = iterable
+          .iter()
+          .skip(iterable.length + 4)
+          .collect();
+
+        expect(result).toStrictEqual([]);
+      });
+
+      it("should skip no elements if the skip number is negative", () => {
+        const result = iterable.iter().skip(-6).collect();
+
+        expect(result).toStrictEqual(iterable);
+      });
+    });
+
+    describe("scan", () => {
+      it("should correctly scan the iterable", () => {
+        const result = [1, 2, 3, 4]
+          .iter()
+          .scan((acc, number) => acc + number, 0)
+          .collect();
+
+        expect(result).toStrictEqual([1, 3, 6, 10]);
+      });
+    });
   });
 
-  it("should fold the iterable", () => {
-    const result = iterable
-      .iter()
-      .fold((acc, item) => acc + item, 0)
-      .collect();
-
-    expect(result).toBe(iterable.reduce((acc, item) => acc + item, 0));
-  });
-
-  it("should filter the iterable", () => {
-    const result = iterable
-      .iter()
-      .filter((item) => item === 999)
-      .collect();
-
-    expect(result).toStrictEqual(iterable.filter((item) => item === 999));
-  });
-
-  it("should square all numbers, filter the odd ones and sum them up", () => {
-    const result = iterable
-      .iter()
-      .map((num) => num * num)
-      .filter((num) => num % 2 !== 0)
-      .fold((acc, num) => acc + num, 0)
-      .collect();
-
-    expect(result).toBe(
-      iterable
+  describe("combos", () => {
+    it("should square all numbers, filter the odd ones and sum them up", () => {
+      const result = iterable
+        .iter()
         .map((num) => num * num)
         .filter((num) => num % 2 !== 0)
-        .reduce((acc, item) => acc + item, 0),
-    );
-  });
+        .fold((acc, num) => acc + num, 0)
+        .collect();
 
-  it("should construct a record of strings with numbers as values", () => {
-    const result = iterable
-      .iter()
-      .fold(
-        (acc, item) => {
-          if (item % 2 === 0) {
-            acc[`even ${item}`] = item;
+      expect(result).toBe(
+        iterable
+          .map((num) => num * num)
+          .filter((num) => num % 2 !== 0)
+          .reduce((acc, item) => acc + item, 0),
+      );
+    });
+
+    it("should construct a record of strings with numbers as values", () => {
+      const result = iterable
+        .iter()
+        .fold(
+          (acc, item) => {
+            if (item % 2 === 0) {
+              acc[`even ${item}`] = item;
+              return acc;
+            }
+            acc[`odd ${item}`] = item;
             return acc;
-          }
-          acc[`odd ${item}`] = item;
-          return acc;
-        },
-        {} as Record<string, number>,
-      )
-      .collect();
+          },
+          {} as Record<`odd ${number}` | `even ${number}`, number>,
+        )
+        .collect();
 
-    expect(result).toStrictEqual(
-      iterable.reduce(
-        (acc, item) => {
-          if (item % 2 === 0) {
-            acc[`even ${item}`] = item;
+      expect(result).toStrictEqual(
+        iterable.reduce(
+          (acc, item) => {
+            if (item % 2 === 0) {
+              acc[`even ${item}`] = item;
+              return acc;
+            }
+            acc[`odd ${item}`] = item;
             return acc;
-          }
-          acc[`odd ${item}`] = item;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-    );
-  });
+          },
+          {} as Record<`odd ${number}` | `even ${number}`, number>,
+        ),
+      );
+    });
 
-  it("should correctly apply a sum reduction", () => {
-    const result = iterable
-      .iter()
-      .reduce((acc, number) => acc + number)
-      .collect();
+    it("should take items, then map on the taken items", () => {
+      const result = iterable
+        .iter()
+        .take(2)
+        .map((number) => number * number)
+        .collect();
 
-    expect(result).toBe(iterable.reduce((acc, number) => acc + number));
-  });
+      expect(result).toStrictEqual([1, 4]);
+    });
 
-  it("should correctly apply the reduction on an array with a single element", () => {
-    const result = [1]
-      .iter()
-      .reduce((acc, number) => `this is number ${acc + number}`)
-      .collect();
+    it("should map the items, then take the mapped items", () => {
+      const result = iterable
+        .iter()
+        .map((number) => number * number)
+        .take(2)
+        .collect();
 
-    expect(result).toBe("this is number 1");
-  });
+      expect(result).toStrictEqual([1, 4]);
+    });
 
-  it("should take the specified number of elements", () => {
-    const result = iterable.iter().take(2).collect();
+    it("should skip items, then map on the skipped items", () => {
+      const result = iterable
+        .iter()
+        .skip(2)
+        .map((number) => number * number)
+        .collect();
 
-    expect(result).toStrictEqual([1, 2]);
-  });
+      expect(result).toStrictEqual(
+        iterable.slice(2).map((number) => number * number),
+      );
+    });
 
-  it("should take the whole array if the take number is greater than the array length", () => {
-    const result = iterable
-      .iter()
-      .take(iterable.length + 4)
-      .collect();
+    it("should map the items, then skip the mapped items", () => {
+      const result = iterable
+        .iter()
+        .map((number) => number * number)
+        .skip(2)
+        .collect();
 
-    expect(result).toStrictEqual(iterable);
-  });
+      expect(result).toStrictEqual(
+        iterable.map((number) => number * number).slice(2),
+      );
+    });
 
-  it("should take no elements if the take number is negative", () => {
-    const result = iterable.iter().take(-6).collect();
+    it("should filter the items, then skip them", () => {
+      const result = iterable
+        .iter()
+        .filter((number) => number % 2 !== 0)
+        .skip(1)
+        .collect();
 
-    expect(result).toStrictEqual([]);
-  });
+      expect(result).toStrictEqual(
+        iterable.filter((number) => number % 2 !== 0).slice(1),
+      );
+    });
 
-  it("should take items, then map on the taken items", () => {
-    const result = iterable
-      .iter()
-      .take(2)
-      .map((number) => number * number)
-      .collect();
+    it("should skip the items, then filter them", () => {
+      const result = iterable
+        .iter()
+        .skip(1)
+        .filter((number) => number % 2 !== 0)
+        .collect();
 
-    expect(result).toStrictEqual([1, 4]);
-  });
+      expect(result).toStrictEqual(
+        iterable.slice(1).filter((number) => number % 2 !== 0),
+      );
+    });
 
-  it("should map the items, then take the mapped items", () => {
-    const result = iterable
-      .iter()
-      .map((number) => number * number)
-      .take(2)
-      .collect();
+    it("should filter, then reduce", () => {
+      const result = [1, 2, 3, 4]
+        .iter()
+        .filter((number) => number % 2 === 0)
+        .reduce((acc, number) => acc + number)
+        .collect();
 
-    expect(result).toStrictEqual([1, 4]);
-  });
-
-  it("should skip the specified number of elements", () => {
-    const result = iterable.iter().skip(2).collect();
-
-    expect(result).toStrictEqual(iterable.slice(2));
-  });
-
-  it("should skip the whole array if the skip number is greater than the array length", () => {
-    const result = iterable
-      .iter()
-      .skip(iterable.length + 4)
-      .collect();
-
-    expect(result).toStrictEqual([]);
-  });
-
-  it("should skip no elements if the skip number is negative", () => {
-    const result = iterable.iter().skip(-6).collect();
-
-    expect(result).toStrictEqual(iterable);
-  });
-
-  it("should skip items, then map on the skipped items", () => {
-    const result = iterable
-      .iter()
-      .skip(2)
-      .map((number) => number * number)
-      .collect();
-
-    expect(result).toStrictEqual(
-      iterable.slice(2).map((number) => number * number),
-    );
-  });
-
-  it("should map the items, then skip the mapped items", () => {
-    const result = iterable
-      .iter()
-      .map((number) => number * number)
-      .skip(2)
-      .collect();
-
-    expect(result).toStrictEqual(
-      iterable.map((number) => number * number).slice(2),
-    );
-  });
-
-  it("should filter the items, then skip them", () => {
-    const result = iterable
-      .iter()
-      .filter((number) => number % 2 !== 0)
-      .skip(1)
-      .collect();
-
-    expect(result).toStrictEqual(
-      iterable.filter((number) => number % 2 !== 0).slice(1),
-    );
-  });
-
-  it("should skip the items, then filter them", () => {
-    const result = iterable
-      .iter()
-      .skip(1)
-      .filter((number) => number % 2 !== 0)
-      .collect();
-
-    expect(result).toStrictEqual(
-      iterable.slice(1).filter((number) => number % 2 !== 0),
-    );
-  });
-
-  it("should correctly scan the iterable", () => {
-    const result = [1, 2, 3, 4]
-      .iter()
-      .scan((acc, number) => acc + number, 0)
-      .collect();
-
-    expect(result).toStrictEqual([1, 3, 6, 10]);
-  });
-
-  it("should filter, then reduce", () => {
-    const result = [1, 2, 3, 4]
-      .iter()
-      .filter((number) => number % 2 === 0)
-      .reduce((acc, number) => acc + number)
-      .collect();
-
-    expect(result).toBe(6);
+      expect(result).toBe(6);
+    });
   });
 });
