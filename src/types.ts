@@ -1,55 +1,62 @@
 export interface ILazyIterator<
-  TIterable extends any[],
-  TAggregates extends any[] = TIterable,
-  TReducedAggregate extends any = never,
+  Iterable extends any[],
+  Aggregates extends any[] = Iterable,
+  ReducedAggregate extends any = never,
 > {
-  collect(): TReducedAggregate | TAggregates;
+  collect(): ReducedAggregate | Aggregates;
 
-  map<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => TResult,
-  ): TItem extends never ? never : ILazyIterator<TIterable, TResult[]>;
+  map<Result, Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (item: Item) => Result,
+  ): Item extends never ? never : ILazyIterator<Iterable, Result[]>;
 
-  filter<TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (item: TItem) => boolean,
-  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+  filter<Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (item: Item) => boolean,
+  ): Item extends never ? never : ILazyIterator<Iterable, Aggregates>;
 
-  fold<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (acc: TAcc, item: TItem) => TResult,
+  fold<TAcc, Result, Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (acc: TAcc, item: Item) => Result,
     initialAccumulator: TAcc,
-  ): TItem extends never ? never : ReducedIterator<TIterable, TResult>;
+  ): Item extends never ? never : ReducedIterator<Iterable, Result>;
 
-  reduce<TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (acc: TAggregates[number], item: TItem) => TResult,
-  ): TItem extends never
+  reduce<Result, Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (acc: Aggregates[number], item: Item) => Result,
+  ): Item extends never
     ? never
-    : TAggregates[1] extends never
+    : Aggregates[1] extends never
     ? never
-    : ReducedIterator<TIterable, TResult>;
+    : ReducedIterator<Iterable, Result>;
 
-  scan<TAcc, TResult, TItem extends TAggregates[number] = TAggregates[number]>(
-    fn: (acc: TAcc, item: TItem) => TResult,
+  scan<TAcc, Result, Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (acc: TAcc, item: Item) => Result,
     initialAccumulator: TAcc,
-  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+  ): Item extends never ? never : ILazyIterator<Iterable, Aggregates>;
 
-  take<TItem extends TAggregates[number] = TAggregates[number]>(
+  take<Item extends Aggregates[number] = Aggregates[number]>(
     many: number,
-  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+  ): Item extends never ? never : ILazyIterator<Iterable, Aggregates>;
 
-  skip<TItem extends TAggregates[number] = TAggregates[number]>(
+  skip<Item extends Aggregates[number] = Aggregates[number]>(
     many: number,
-  ): TItem extends never ? never : ILazyIterator<TIterable, TAggregates>;
+  ): Item extends never ? never : ILazyIterator<Iterable, Aggregates>;
+
+  flat<Item extends Aggregates[number] = Aggregates[number]>(
+    depth?: number,
+  ): Item extends never
+    ? never
+    : ILazyIterator<Iterable, Item extends any[][] ? Item[number] : Item>;
 }
 
 export type ReducedIterator<
-  TIterable extends any[],
+  Iterable extends any[],
   TReducedAggregate extends any = never,
-> = Pick<ILazyIterator<TIterable, never, TReducedAggregate>, "collect">;
+> = Pick<ILazyIterator<Iterable, never, TReducedAggregate>, "collect">;
 
-export type Operation<TIterable extends any[]> =
-  | ["map", ...Parameters<ILazyIterator<TIterable>["map"]>]
-  | ["filter", ...Parameters<ILazyIterator<TIterable>["filter"]>]
-  | ["fold", ...Parameters<ILazyIterator<TIterable>["fold"]>]
-  | ["reduce", ...Parameters<ILazyIterator<TIterable>["reduce"]>]
-  | ["scan", ...Parameters<ILazyIterator<TIterable>["scan"]>]
-  | ["take", ...Parameters<ILazyIterator<TIterable>["take"]>]
-  | ["skip", ...Parameters<ILazyIterator<TIterable>["skip"]>];
+export type Operation<Iterable extends any[]> =
+  | ["map", ...Parameters<ILazyIterator<Iterable>["map"]>]
+  | ["filter", ...Parameters<ILazyIterator<Iterable>["filter"]>]
+  | ["fold", ...Parameters<ILazyIterator<Iterable>["fold"]>]
+  | ["reduce", ...Parameters<ILazyIterator<Iterable>["reduce"]>]
+  | ["scan", ...Parameters<ILazyIterator<Iterable>["scan"]>]
+  | ["take", ...Parameters<ILazyIterator<Iterable>["take"]>]
+  | ["skip", ...Parameters<ILazyIterator<Iterable>["skip"]>]
+  | ["flat", ...Parameters<ILazyIterator<Iterable>["flat"]>];

@@ -40,5 +40,5 @@ export const defaultOf = (
   return defaults[_type];
 };
 
-export const cast = <T extends (...args: any[]) => any>(self: any) =>
+export const castFromReturnType = <T extends (...args: any[]) => any>(self: any) =>
   self as unknown as ReturnType<T>;

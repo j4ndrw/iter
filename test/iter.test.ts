@@ -8,6 +8,12 @@ describe("LazyIterator", () => {
     [1, 2, 3],
     [4, 5, 6],
   ];
+  const deeperFlattenableIterable = [
+    [
+      [1, 2, 3],
+      [4, 5, 6],
+    ],
+  ];
 
   describe("primitives", () => {
     describe("map", () => {
@@ -118,6 +124,21 @@ describe("LazyIterator", () => {
 
         expect(result).toStrictEqual([1, 3, 6, 10]);
       });
+    });
+
+    describe("flat", () => {
+      it("should correctly flatten the iterable", () => {
+        const result = flattenableIterable.iter().flat().collect();
+        expect(result).toStrictEqual(flattenableIterable.flat());
+      });
+      it("should return the iterable as is if the depth is <= 1", () => {
+        const result = [1, 2, 3].iter().flat().collect();
+        expect(result).toStrictEqual([1, 2, 3]);
+      });
+      // it("should flatten the whole iterable if the specified depth is greater than the actual depth", () => {
+      //   const result = deeperFlattenableIterable.iter().flat(2).collect();
+      //   expect(result).toStrictEqual(deeperFlattenableIterable.flat(2));
+      // });
     });
   });
 
@@ -245,6 +266,37 @@ describe("LazyIterator", () => {
         .collect();
 
       expect(result).toBe(6);
+    });
+
+    it("should filter, then fold into an object", () => {
+      const result = [1, 2, 3, 4]
+        .iter()
+        .filter((n) => n % 2 === 0)
+        .fold(
+          (acc, n) => {
+            acc[`num${n}`] = n;
+            return acc;
+          },
+          {} as Record<string, number>,
+        )
+        .collect();
+      expect(result).toStrictEqual({ num2: 2, num4: 4 });
+    });
+
+    it("should flatten the iterable, then square the contents, then filter only the even numbers", () => {
+      const result = flattenableIterable
+        .iter()
+        .flat()
+        .map((item) => item * item)
+        .filter((item) => item % 2 === 0)
+        .collect();
+
+      expect(result).toStrictEqual(
+        flattenableIterable
+          .flat()
+          .map((item) => item * item)
+          .filter((item) => item % 2 === 0),
+      );
     });
   });
 });
