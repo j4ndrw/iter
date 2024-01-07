@@ -8,12 +8,6 @@ describe("LazyIterator", () => {
     [1, 2, 3],
     [4, 5, 6],
   ];
-  const deeperFlattenableIterable = [
-    [
-      [1, 2, 3],
-      [4, 5, 6],
-    ],
-  ];
 
   describe("primitives", () => {
     describe("map", () => {
@@ -287,6 +281,9 @@ describe("LazyIterator", () => {
       const result = flattenableIterable
         .iter()
         .flat()
+        .identity((item) => {
+          console.log({ item });
+        })
         .map((item) => item * item)
         .filter((item) => item % 2 === 0)
         .collect();

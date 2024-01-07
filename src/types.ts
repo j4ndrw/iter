@@ -23,8 +23,8 @@ export interface ILazyIterator<
   ): Item extends never
     ? never
     : Aggregates[1] extends never
-    ? never
-    : ReducedIterator<Iterable, Result>;
+      ? never
+      : ReducedIterator<Iterable, Result>;
 
   scan<TAcc, Result, Item extends Aggregates[number] = Aggregates[number]>(
     fn: (acc: TAcc, item: Item) => Result,
@@ -44,6 +44,10 @@ export interface ILazyIterator<
   ): Item extends never
     ? never
     : ILazyIterator<Iterable, Item extends any[][] ? Item[number] : Item>;
+
+  identity<Item extends Aggregates[number] = Aggregates[number]>(
+    fn: (item: Item) => void,
+  ): Item extends never ? never : ILazyIterator<Iterable, Item[]>;
 }
 
 export type ReducedIterator<
@@ -59,4 +63,5 @@ export type Operation<Iterable extends any[]> =
   | ["scan", ...Parameters<ILazyIterator<Iterable>["scan"]>]
   | ["take", ...Parameters<ILazyIterator<Iterable>["take"]>]
   | ["skip", ...Parameters<ILazyIterator<Iterable>["skip"]>]
-  | ["flat", ...Parameters<ILazyIterator<Iterable>["flat"]>];
+  | ["flat", ...Parameters<ILazyIterator<Iterable>["flat"]>]
+  | ["identity", ...Parameters<ILazyIterator<Iterable>["identity"]>];
